@@ -18,7 +18,7 @@ public class Server{
             return;
         }
  
-		int port = Integer.parseInt(args[1]);
+		int port = Integer.parseInt(args[0]);
 		
 		try {
             Server server = new Server(port);
@@ -27,30 +27,41 @@ public class Server{
 			server.startConn(ip);
         }catch(IOException ex){
 			System.out.println("I/O error: " + ex.getMessage());
-		}
+		}catch (InterruptedException ex) {
+            ex.printStackTrace();
+        }
 		
     }
 	
 	private InetAddress waitForSyn() throws IOException{
-		DatagramSocket socket = new DatagramSocket(); //Will probably need to set port somewhere here
+		DatagramSocket socket = this.socket;
 		byte[] buffer = new byte[16];
 		while(true){
 			DatagramPacket response = new DatagramPacket(buffer, buffer.length);
 			socket.receive(response);
-			String res = new String(buffer, 0, response.getLength());
+			String res = new String(buffer, "IBM01140");
+			System.out.println("Recieved: " + res);
 			if(res.charAt(0) == 'S'){
+				System.out.println("(SYN MSG)");
 				return response.getAddress();
 			}
 		}
 	}
 	
-	private void startConn(InetAddress ip) throws IOException{
-		DatagramSocket socket = new DatagramSocket(); //Will probably need to set port somewhere here
-		String packetString = "Z"; //Z for synack
+	private void startConn(InetAddress ip) throws IOException, InterruptedException{
+		DatagramSocket socket = this.socket;
+		socket.connect(ip, 100);
+		String packetString = "Z000000000000000"; //Z for synack
 		byte[] buffer = new byte[16];
-		System.arraycopy(packetString.getBytes(), 0, buffer, 16 - packetString.length(), packetString.length());
-		DatagramPacket request = new DatagramPacket(buffer, 1, ip, 100);
+		buffer = packetString.getBytes("IBM01140");
+		DatagramPacket request = new DatagramPacket(buffer, buffer.length);
+		System.out.println("Sending: " + new String(buffer, "IBM01140"));
+		Thread.sleep(1000);
         socket.send(request);
+		System.out.println("Sent SYNACK");
+		Thread.sleep(1000);
+        socket.send(request);
+		System.out.println("Sent SYNACK");
 		while(true){
 			DatagramPacket response = new DatagramPacket(buffer, buffer.length);
 			socket.receive(response);
