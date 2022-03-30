@@ -30,7 +30,7 @@ public class Server
 
 		if (args.length < 1)
 		{
-            System.out.println("Usage: Server port\nInput: ");
+            System.out.println("Usage: <port>\nInput: ");
 			Scanner scanner = new Scanner(System.in);
 			port = Integer.parseInt(scanner.next());
         }
