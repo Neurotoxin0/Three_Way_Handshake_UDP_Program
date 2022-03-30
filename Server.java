@@ -80,14 +80,13 @@ public class Server
 		Thread.sleep(1000);
         socket.send(request);
 		System.out.println("Sent SYNACK");
-		Thread.sleep(1000);
-        socket.send(request);
-		System.out.println("Sent SYNACK");
 		while(true)
 		{
+			socket.connect(ip, port);
 			DatagramPacket response = new DatagramPacket(buffer, buffer.length);
 			socket.receive(response);
-			String res = new String(buffer, 0, response.getLength());
+			String res = new String(buffer, "IBM01140");
+			System.out.println("Recieved packet: " + res);
 			if(res.charAt(0) == 'R')	{ return ; }	// Request recieved
 		}
 	}

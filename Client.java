@@ -38,24 +38,35 @@ public class Client
             DatagramSocket socket = new DatagramSocket();
 			socket.connect(address, port);
 			
-            while (true)
+            while (true) //Send SYN, REQ
             {
 				String packetString = "S000000000000000"; //S for SYN
-				String charsetName = "IBM01140";
 
 				byte[] buffer = new byte[16];
 				buffer = packetString.getBytes("IBM01140");
 				DatagramPacket request = new DatagramPacket(buffer, 1);
 				socket.send(request);
-				System.out.println("Sent");
+				System.out.println("Sent SYN");
                 DatagramPacket response = new DatagramPacket(buffer, buffer.length, address, port);
-				System.out.println("Waiting");
                 socket.receive(response);
-				System.out.println("Recieved");
+				System.out.println("Recieved packet");
                 String res = new String(buffer, "IBM01140");
  
-                Thread.sleep(1000);
+				if(res.charAt(0)=='Z'){	//If that packet is a synack
+					System.out.println("SYNACK recieved");
+					Thread.sleep(10);
+					packetString = "R000000000000000"; //R for REQ
+					buffer = packetString.getBytes("IBM01140");
+					request = new DatagramPacket(buffer, 1);
+					socket.send(request);
+					System.out.println("REQ sent");
+					
+					break; //Next loop
+				}
             }
+			while (true){
+					//Handle datastrean
+			}
  
         }
         catch (SocketTimeoutException ex)
