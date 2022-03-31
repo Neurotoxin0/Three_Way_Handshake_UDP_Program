@@ -65,7 +65,15 @@ public class Client
 				}
             }
 			while (true){
-					//Handle datastrean
+				byte[] buffer = new byte[16];
+				DatagramPacket response = new DatagramPacket(buffer, buffer.length, address, port);
+				socket.receive(response);
+                String res = new String(buffer, "IBM01140");
+				
+				if(res.charAt(0) == 'D'){//TODO: HANDLE SEQ #, ACK
+					System.out.println(res);
+					//TODO: APPEND RES TO ARRAYLIST/STRINGBUILDER
+				}
 			}
  
         }
