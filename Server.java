@@ -44,6 +44,7 @@ public class Server
 			int client_port = Integer.parseInt(detail[1]);
 			server.startConn(client_ip, client_port);
 			server.sendData(client_ip, client_port, "This is the data. Here is a second sentence that we'll send. Here is a third...");
+			server.sendFIN(client_ip, client_port);
         }
 		catch(IOException ex)	{ System.out.println("I/O error: " + ex.getMessage()); }
 		catch (InterruptedException ex) { ex.printStackTrace(); }
@@ -112,31 +113,45 @@ public class Server
 		}
 		
 		byte[] buffer = new byte[16];
-		
+		byte[] recvBuffer = new byte[16];
 		for(i = 0; i < chunks.size(); i++){
-			buffer = ("D" + (i % 2) + "00000000000000").getBytes("IBM01140");
-			System.arraycopy(chunks.get(i), 0, buffer, 2, 14);
+			while(true){ //TODO: HANDLE TIMEOUT
+				buffer = ("D" + (i % 2) + "00000000000000").getBytes("IBM01140");
+				System.arraycopy(chunks.get(i), 0, buffer, 2, 14);
 
-			DatagramPacket request = new DatagramPacket(buffer, buffer.length);
-			System.out.println("Sending: " + new String(buffer, "IBM01140"));
-			socket.send(request);
-			//TODO: WAIT FOR ACK
+				DatagramPacket request = new DatagramPacket(buffer, buffer.length);
+				System.out.println("Sending: " + new String(buffer, "IBM01140"));
+				socket.send(request);
+				
+				DatagramPacket response = new DatagramPacket(recvBuffer, recvBuffer.length);
+				socket.setSoTimeout(400);
+				socket.receive(response);
+				String res = new String(recvBuffer, "IBM01140");
+				System.out.println("Recieved packet: " + res);
+				if(res.charAt(0) == 'A' && Character.getNumericValue(res.charAt(1)) == (i % 2))	{ break; }	// Correct ack
+				
+				
+			}
+			
 		}
 		
 		return;
 	}
 	
-	private void sendFIN(InetAddress ip, int port) throws IOException	//CHECK IF WE SHOULD ADD SEQ #
+	private void sendFIN(InetAddress ip, int port) throws IOException	//CHECK IF WE SHOULD ADD SEQ # TODO: HANDLE TIMEOUT
 	{
-		DatagramSocket socket = new DatagramSocket(); //Will probably need to set port somewhere here
+		DatagramSocket socket = this.socket;
+		socket.connect(ip, port);
 		String packetString = "F"; //F for FIN
 		byte[] buffer = new byte[16];
 		System.arraycopy(packetString.getBytes(), 0, buffer, 16 - packetString.length(), packetString.length());
-		DatagramPacket request = new DatagramPacket(buffer, 1, ip, 100);
+		DatagramPacket request = new DatagramPacket(buffer, 1, ip, port);
         socket.send(request);
+		
 		while(true)
 		{
 			DatagramPacket response = new DatagramPacket(buffer, buffer.length);
+			socket.setSoTimeout(400);
 			socket.receive(response);
 			String res = new String(buffer, 0, response.getLength());
 			if(res.charAt(0) == 'A')	{ return; }	//Ack recieved

@@ -64,15 +64,31 @@ public class Client
 					break; //Next loop
 				}
             }
+			int i = 0;
 			while (true){
+				String packetString;
+				DatagramPacket request;
 				byte[] buffer = new byte[16];
 				DatagramPacket response = new DatagramPacket(buffer, buffer.length, address, port);
 				socket.receive(response);
                 String res = new String(buffer, "IBM01140");
 				
-				if(res.charAt(0) == 'D'){//TODO: HANDLE SEQ #, ACK
-					System.out.println(res);
-					//TODO: APPEND RES TO ARRAYLIST/STRINGBUILDER
+				if(res.charAt(0) == 'D'){
+					if(Character.getNumericValue(res.charAt(1)) == i){
+						System.out.println(res);
+						//TODO: APPEND RES TO ARRAYLIST/STRINGBUILDER
+						packetString = "A" + i + "00000000000000"; //ACK
+						buffer = packetString.getBytes("IBM01140");
+						request = new DatagramPacket(buffer, 2);
+						socket.send(request);
+						System.out.println("ACK sent");
+						i = (i + 1) % 2;
+					}else{
+						System.out.println("Unexpected SEQ # recieved: " + res);
+					}
+					
+				}else if(res.charAt(0) == 'F'){
+					//FIN RECIEVED
 				}
 			}
  
