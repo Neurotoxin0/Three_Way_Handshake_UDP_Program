@@ -57,13 +57,17 @@ public class Server
 		while(true)
 		{
 			DatagramPacket response = new DatagramPacket(buffer, buffer.length);
-			socket.receive(response);
-			String res = new String(buffer, "IBM01140");
-			System.out.println("Recieved: " + res);
-			if(res.charAt(0) == 'S')
-			{
-				System.out.println("(SYN MSG)");
-				return response.getAddress().toString()+":"+response.getPort();
+			try{
+				socket.receive(response);
+				
+				String res = new String(buffer, "IBM01140");
+				System.out.println("Recieved: " + res);
+				if(res.charAt(0) == 'S'){
+					System.out.println("(SYN MSG)");
+					return response.getAddress().toString()+":"+response.getPort();
+				}
+			}catch(SocketException e){
+				System.out.println("Timeout occured...");
 			}
 		}
 	}
@@ -86,10 +90,15 @@ public class Server
 		{
 			socket.connect(ip, port);
 			DatagramPacket response = new DatagramPacket(buffer, buffer.length);
-			socket.receive(response);
-			String res = new String(buffer, "IBM01140");
-			System.out.println("Recieved packet: " + res);
-			if(res.charAt(0) == 'R')	{ return ; }	// Request recieved
+			try{
+				socket.receive(response);
+				String res = new String(buffer, "IBM01140");
+				System.out.println("Recieved packet: " + res);
+				if(res.charAt(0) == 'R')	{ return ; }	// Request recieved
+			}catch(SocketTimeoutException e){
+				System.out.println("Timeout occured...");
+				continue;
+			}
 		}
 	}
 	
@@ -125,11 +134,15 @@ public class Server
 				
 				DatagramPacket response = new DatagramPacket(recvBuffer, recvBuffer.length);
 				socket.setSoTimeout(400);
-				socket.receive(response);
-				String res = new String(recvBuffer, "IBM01140");
-				System.out.println("Recieved packet: " + res);
-				if(res.charAt(0) == 'A' && Character.getNumericValue(res.charAt(1)) == (i % 2))	{ break; }	// Correct ack
-				
+				try{
+					socket.receive(response);
+					String res = new String(recvBuffer, "IBM01140");
+					System.out.println("Recieved packet: " + res);
+					if(res.charAt(0) == 'A' && Character.getNumericValue(res.charAt(1)) == (i % 2))	{ break; }	// Correct ack
+				}catch(SocketTimeoutException e){
+					System.out.println("Timeout occured...");
+					continue;
+				}
 				
 			}
 			
@@ -142,19 +155,24 @@ public class Server
 	{
 		DatagramSocket socket = this.socket;
 		socket.connect(ip, port);
-		String packetString = "F"; //F for FIN
+		String packetString = "F000000000000000"; //F for FIN
 		byte[] buffer = new byte[16];
-		System.arraycopy(packetString.getBytes(), 0, buffer, 16 - packetString.length(), packetString.length());
-		DatagramPacket request = new DatagramPacket(buffer, 1, ip, port);
-        socket.send(request);
+		buffer = packetString.getBytes("IBM01140");
+		DatagramPacket request = new DatagramPacket(buffer, 2);
+		socket.send(request);
 		
 		while(true)
 		{
 			DatagramPacket response = new DatagramPacket(buffer, buffer.length);
 			socket.setSoTimeout(400);
-			socket.receive(response);
-			String res = new String(buffer, 0, response.getLength());
-			if(res.charAt(0) == 'A')	{ return; }	//Ack recieved
+			try{
+				socket.receive(response);
+				String res = new String(buffer, "IBM01140");
+				if(res.charAt(0) == 'A')	{ return; }	//Ack recieved
+			}catch(SocketTimeoutException e){
+				System.out.println("Timeout occured...");
+				continue;
+			}
 		}
 	}
 }

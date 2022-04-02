@@ -64,6 +64,7 @@ public class Client
 					break; //Next loop
 				}
             }
+			String msg = "";
 			int i = 0;
 			while (true){
 				String packetString;
@@ -72,25 +73,33 @@ public class Client
 				DatagramPacket response = new DatagramPacket(buffer, buffer.length, address, port);
 				socket.receive(response);
                 String res = new String(buffer, "IBM01140");
-				
+				System.out.println(res);
 				if(res.charAt(0) == 'D'){
 					if(Character.getNumericValue(res.charAt(1)) == i){
-						System.out.println(res);
-						//TODO: APPEND RES TO ARRAYLIST/STRINGBUILDER
+						
 						packetString = "A" + i + "00000000000000"; //ACK
 						buffer = packetString.getBytes("IBM01140");
 						request = new DatagramPacket(buffer, 2);
 						socket.send(request);
 						System.out.println("ACK sent");
 						i = (i + 1) % 2;
+						msg = msg + res.substring(2);
 					}else{
 						System.out.println("Unexpected SEQ # recieved: " + res);
 					}
 					
 				}else if(res.charAt(0) == 'F'){
 					//FIN RECIEVED
+					packetString = "A" + i + "00000000000000"; //ACK
+					buffer = packetString.getBytes("IBM01140");
+					request = new DatagramPacket(buffer, 2);
+					socket.send(request);
+					System.out.println("FINACK sent");
+					break;
 				}
 			}
+			System.out.println("Recieved message:");
+			System.out.println(msg);
  
         }
         catch (SocketTimeoutException ex)
