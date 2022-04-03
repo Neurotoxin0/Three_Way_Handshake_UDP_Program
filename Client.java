@@ -10,7 +10,7 @@
 import java.io.*;
 import java.net.*;
 import java.util.Scanner;
-
+import java.util.Random;
 
 public class Client
 {
@@ -66,6 +66,8 @@ public class Client
             }
 			String msg = "";
 			int i = 0;
+			Random rand = new Random();
+			boolean loss = true;
 			while (true){
 				String packetString;
 				DatagramPacket request;
@@ -74,18 +76,36 @@ public class Client
 				socket.receive(response);
                 String res = new String(buffer, "IBM01140");
 				System.out.println(res);
+				
 				if(res.charAt(0) == 'D'){
 					if(Character.getNumericValue(res.charAt(1)) == i){
 						
 						packetString = "A" + i + "00000000000000"; //ACK
 						buffer = packetString.getBytes("IBM01140");
 						request = new DatagramPacket(buffer, 2);
-						socket.send(request);
-						System.out.println("ACK sent");
+						
+						if(!loss || rand.nextInt(5) < 4){
+							socket.send(request);
+							System.out.println("ACK sent");
+						}else{
+							System.out.println("(Simulated ACK loss event)");
+						}
+						
 						i = (i + 1) % 2;
 						msg = msg + res.substring(2);
 					}else{
 						System.out.println("Unexpected SEQ # recieved: " + res);
+						System.out.println("Reacking...");
+						packetString = "A" + ((i + 1) % 2) + "00000000000000"; //ACK
+						buffer = packetString.getBytes("IBM01140");
+						request = new DatagramPacket(buffer, 2);
+						
+						if(!loss || rand.nextInt(5) < 4){
+							socket.send(request);
+							System.out.println("ACK sent");
+						}else{
+							System.out.println("(Simulated ACK loss event)");
+						}
 					}
 					
 				}else if(res.charAt(0) == 'F'){
