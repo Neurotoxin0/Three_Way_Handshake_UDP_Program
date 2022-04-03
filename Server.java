@@ -10,7 +10,7 @@
 import java.io.*;
 import java.net.*;
 import java.util.*;
-
+import java.util.Random;
 
 public class Server
 {
@@ -43,7 +43,7 @@ public class Server
             InetAddress client_ip = InetAddress.getByName(detail[0]);
 			int client_port = Integer.parseInt(detail[1]);
 			server.startConn(client_ip, client_port);
-			server.sendData(client_ip, client_port, "This is the data. Here is a second sentence that we'll send. Here is a third...");
+			server.sendData(client_ip, client_port, "This is the data. Here is a second sentence that we'll send. Here is a third...", true);
 			server.sendFIN(client_ip, client_port);
         }
 		catch(IOException ex)	{ System.out.println("I/O error: " + ex.getMessage()); }
@@ -102,9 +102,11 @@ public class Server
 		}
 	}
 	
-	private void sendData(InetAddress ip, int port, String data) throws IOException{
+	private void sendData(InetAddress ip, int port, String data, boolean loss) throws IOException{
 		DatagramSocket socket = this.socket;
 		socket.connect(ip, port);
+		
+		Random rand = new Random();
 		
 		int ceil = ((int) Math.ceil((double)data.length() / 14.0)) * 14;
 		data = String.format("%-" + ceil + "s", data);
@@ -130,8 +132,11 @@ public class Server
 
 				DatagramPacket request = new DatagramPacket(buffer, buffer.length);
 				System.out.println("Sending: " + new String(buffer, "IBM01140"));
-				socket.send(request);
-				
+				if(!loss || rand.nextInt(5) < 4){
+					socket.send(request);
+				}else{
+					System.out.println("(Simulated loss event)");
+				}
 				DatagramPacket response = new DatagramPacket(recvBuffer, recvBuffer.length);
 				socket.setSoTimeout(400);
 				try{
