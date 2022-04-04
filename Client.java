@@ -12,19 +12,38 @@ import java.net.*;
 import java.util.Scanner;
 import java.util.Random;
 
+import static java.lang.System.exit;
+
 public class Client
 {
 	public static void main(String[] args)
     {
         String hostname;
         int port;
+		byte[] buffer;
+		DatagramPacket msg_out;
+		DatagramPacket msg_in;
 
-        if (args.length < 2)
+		// Get address details from Command Line Args or system.in
+        if (args.length != 2)
         {
-            System.out.println("Usage: <hostname> <port>\nInput: ");
+			System.out.println("--------------------------------------------------");
+			System.out.println("< Invalid Number of Argument, Reading From User >");
+			System.out.println("--------------------------------------------------");
+			System.out.print("Usage:\t<hostname> <port>\tOR\t<hostname:port>\n> ");
             Scanner scanner = new Scanner(System.in);
-            hostname = scanner.next();
-            port = Integer.parseInt(scanner.next());
+
+			String [] raw = scanner.next().split(":");
+			if (raw.length == 2)
+			{
+				hostname = raw[0];
+				port = Integer.parseInt(raw[1]);
+			}
+			else
+			{
+				hostname = raw[0];;
+				port = Integer.parseInt(scanner.next());
+			}
         }
         else
         {
@@ -32,96 +51,130 @@ public class Client
             port = Integer.parseInt(args[1]);
         }
 
+		// Connect Part
         try
         {
             InetAddress address = InetAddress.getByName(hostname);
+
+			System.out.println("\n--------------------------------------------------");
+			System.out.println("Connecting Server: " + address + ":" + port + "\n...");
             DatagramSocket socket = new DatagramSocket();
 			socket.connect(address, port);
-			
-            while (true) //Send SYN, REQ
-            {
-				String packetString = "S000000000000000"; //S for SYN
+			System.out.println("Connected");
+			System.out.println("--------------------------------------------------");
 
-				byte[] buffer = new byte[16];
+
+            while (true)
+            {
+				// Send SYN
+				String packetString = "S000000000000000"; //S for SYN
 				buffer = packetString.getBytes("IBM01140");
-				DatagramPacket request = new DatagramPacket(buffer, 1);
-				socket.send(request);
-				System.out.println("Sent SYN");
-                DatagramPacket response = new DatagramPacket(buffer, buffer.length, address, port);
-                socket.receive(response);
-				System.out.println("Recieved packet");
+				msg_out = new DatagramPacket(buffer, 1);
+				socket.send(msg_out);
+				System.out.println("SYN Sent");
+
+				// Await Response
+				System.out.println("...\nAwait Response\n...");
+				msg_in = new DatagramPacket(buffer, buffer.length, address, port);
+                socket.receive(msg_in);
+				System.out.print("Packet Received: ");
                 String res = new String(buffer, "IBM01140");
- 
-				if(res.charAt(0)=='Z'){	//If that packet is a synack
-					System.out.println("SYNACK recieved");
+
+				// if SYN-ACK
+				if (res.charAt(0)=='Z')
+				{
+					System.out.println("SYN-ACK Received");
 					Thread.sleep(10);
-					packetString = "R000000000000000"; //R for REQ
+
+					// Send REQ
+					System.out.println("...\nPreparing Request\n...");
+					packetString = "R000000000000000"; // R for REQ
 					buffer = packetString.getBytes("IBM01140");
-					request = new DatagramPacket(buffer, 1);
-					socket.send(request);
+					msg_out = new DatagramPacket(buffer, 1);
+					socket.send(msg_out);
 					System.out.println("REQ sent");
-					
-					break; //Next loop
+					System.out.println("--------------------------------------------------");
+					break;
+				}
+				else	// packet received != SYN-ACK --> Exiting
+				{
+					System.out.println("Unknown Packet Received!\nExiting...");
+					exit(1);
 				}
             }
+
+			// Receiving Messages
+			System.out.println("Receiving Messages:\n");
 			String msg = "";
 			int i = 0;
 			Random rand = new Random();
 			boolean loss = true;
-			while (true){
+
+			while (true)
+			{
 				String packetString;
-				DatagramPacket request;
-				byte[] buffer = new byte[16];
-				DatagramPacket response = new DatagramPacket(buffer, buffer.length, address, port);
-				socket.receive(response);
+				buffer = new byte[16];	// empty buffer
+
+				// Receive msg
+
+				msg_in = new DatagramPacket(buffer, buffer.length, address, port);
+				socket.receive(msg_in);
                 String res = new String(buffer, "IBM01140");
-				System.out.println(res);
+				System.out.println("Received: " + res);
 				
-				if(res.charAt(0) == 'D'){
-					if(Character.getNumericValue(res.charAt(1)) == i){
-						
-						packetString = "A" + i + "00000000000000"; //ACK
+				if (res.charAt(0) == 'D')
+				{
+					if (Character.getNumericValue(res.charAt(1)) == i)
+					{
+						packetString = "A" + i + "00000000000000"; // ACK
 						buffer = packetString.getBytes("IBM01140");
-						request = new DatagramPacket(buffer, 2);
+						msg_out = new DatagramPacket(buffer, 2);
 						
-						if(!loss || rand.nextInt(5) < 4){
-							socket.send(request);
-							System.out.println("ACK sent");
-						}else{
-							System.out.println("(Simulated ACK loss event)");
+						if (!loss || rand.nextInt(5) < 4)
+						{
+							socket.send(msg_out);
+							System.out.println("< ACK Sent >\n");
 						}
+						else { System.out.println("< Simulating ACK Loss Event >\n"); }
 						
 						i = (i + 1) % 2;
 						msg = msg + res.substring(2);
-					}else{
-						System.out.println("Unexpected SEQ # recieved: " + res);
-						System.out.println("Reacking...");
-						packetString = "A" + ((i + 1) % 2) + "00000000000000"; //ACK
-						buffer = packetString.getBytes("IBM01140");
-						request = new DatagramPacket(buffer, 2);
-						
-						if(!loss || rand.nextInt(5) < 4){
-							socket.send(request);
-							System.out.println("ACK sent");
-						}else{
-							System.out.println("(Simulated ACK loss event)");
-						}
 					}
-					
-				}else if(res.charAt(0) == 'F'){
-					//FIN RECIEVED
+					else
+					{
+						System.out.println("\nUnexpected SEQ # Received, With the Message: " + res);
+						System.out.print("Re-ACKing: ");
+
+						packetString = "A" + ((i + 1) % 2) + "00000000000000"; // ACK
+						buffer = packetString.getBytes("IBM01140");
+						msg_out = new DatagramPacket(buffer, 2);
+						
+						if (!loss || rand.nextInt(5) < 4)
+						{
+							socket.send(msg_out);
+							System.out.println("< ACK Sent >\n");
+						}
+						else { System.out.println("< Simulating ACK Loss Event >\n"); }
+					}
+				}
+				else if (res.charAt(0) == 'F')	// FIN Received
+				{
 					packetString = "A" + i + "00000000000000"; //ACK
 					buffer = packetString.getBytes("IBM01140");
-					request = new DatagramPacket(buffer, 2);
-					socket.send(request);
-					System.out.println("FINACK sent");
+					msg_out = new DatagramPacket(buffer, 2);
+					socket.send(msg_out);
+					System.out.println("< FIN-ACK Sent >\n");
+					System.out.println("--------------------------------------------------");
 					break;
 				}
 			}
-			System.out.println("Recieved message:");
-			System.out.println(msg);
- 
+			System.out.println("Received message: " + msg);
+			System.out.println("--------------------------------------------------");
+ 			exit(0);
         }
+		catch (UnknownHostException e) { System.out.println("\nUnknownHostException: Unknown Hostname"); }
+		catch (SocketException e) { System.out.println("\nSocketException: Network is unreachable"); }
+		catch (UncheckedIOException e) { System.out.println("\nUncheckedIOException: Network is unreachable"); }
         catch (SocketTimeoutException ex)
         {
             System.out.println("Timeout error: " + ex.getMessage());
