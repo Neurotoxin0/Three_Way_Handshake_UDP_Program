@@ -89,6 +89,7 @@ public class Server
 					System.out.println("< SYN Received >");
 					return client_ip + ":" + client_port;
 				}
+				else { System.out.println("< Invalid SYN Received! > - " + res); }
 			}
 			catch(SocketException e)	{ System.out.println("SocketException: Timeout Occurred"); }
 		}
@@ -99,13 +100,13 @@ public class Server
 		DatagramSocket socket = this.socket;
 		socket.connect(ip, port);
 
-		System.out.println("...\nPreparing SYN-ACK\n...");
+		System.out.println("...\nPreparing SYN ACK\n...");
 		String packetString = "Z000000000000000"; // Z for SYN ACK
 		buffer = packetString.getBytes("IBM01140");
 		msg_out = new DatagramPacket(buffer, buffer.length);
 		Thread.sleep(1000);
         socket.send(msg_out);
-		System.out.println("< SYN-ACK Sent > - " + packetString);
+		System.out.println("< SYN ACK Sent > - " + packetString);
 		System.out.println("...\nAwait REQ\n...");
 
 		while(true)
@@ -115,15 +116,23 @@ public class Server
 			try
 			{
 				socket.receive(msg_in);
-				String res = new String(buffer, "IBM01140");
-				System.out.println("Received packet: " + res);
+				String Expected_client = "" + ip + port;
+				String Current_client = "" + msg_in.getAddress() + msg_in.getPort();
 
-				if(res.charAt(0) == 'R')	// Request received
+				if (Expected_client.equals(Current_client))	// verify if receiving from specific client
 				{
-					System.out.println("< REQ Received >");
-					System.out.println("--------------------------------------------------");
-					return ;
+					String res = new String(buffer, "IBM01140");
+					System.out.println("Received packet: " + res);
+
+					if(res.charAt(0) == 'R')	// Request received
+					{
+						System.out.println("< REQ Received >");
+						System.out.println("--------------------------------------------------");
+						return ;
+					}
+					else { System.out.println("< Invalid REQ Received! > - " + res); }
 				}
+				else { System.out.println("Expecting Client: " + Expected_client + "\nIncoming Client: " + Current_client); }
 			}
 			catch(SocketTimeoutException e) { System.out.println("SocketTimeoutException: Timeout Occurred"); }
 		}
@@ -165,26 +174,33 @@ public class Server
 				buffer = ("D" + (i % 2) + "00000000000000").getBytes("IBM01140");
 				System.arraycopy(chunks.get(i), 0, buffer, 2, 14);
 
-				DatagramPacket request = new DatagramPacket(buffer, buffer.length);
+				msg_out = new DatagramPacket(buffer, buffer.length);
 				System.out.println("\nSending: " + new String(buffer, "IBM01140"));
 
-				if(!loss || random.nextInt(5) < 4) { socket.send(request); }
+				if(!loss || random.nextInt(5) < 4) { socket.send(msg_out); }
 				else { System.out.println("< Simulating Loss Event >"); }
 
-				DatagramPacket response = new DatagramPacket(recvBuffer, recvBuffer.length);
+				msg_in = new DatagramPacket(recvBuffer, recvBuffer.length);
 				socket.setSoTimeout(400);
 
 				try
 				{
-					socket.receive(response);
-					String res = new String(recvBuffer, "IBM01140");
+					socket.receive(msg_in);
+					String Expected_client = "" + ip + port;
+					String Current_client = "" + msg_in.getAddress() + msg_in.getPort();
 
-					if(res.charAt(0) == 'A' && Character.getNumericValue(res.charAt(1)) == (i % 2))	// Correct ack
+					if (Expected_client.equals(Current_client))	// verify if receiving from specific client
 					{
-						System.out.println("< ACK Received > - " + res);
-						break;
+						String res = new String(recvBuffer, "IBM01140");
+
+						if (res.charAt(0) == 'A' && Character.getNumericValue(res.charAt(1)) == (i % 2))    // Correct ack
+						{
+							System.out.println("< ACK Received > - " + res);
+							break;
+						}
+						else { System.out.println("< Invalid ACK Received! > - " + res); }
 					}
-					else { System.out.println("< Invalid ACK Received! > - " + res); }
+					else { System.out.println("Expecting Client: " + Expected_client + "\nIncoming Client: " + Current_client); }
 				}
 				catch(SocketTimeoutException e) { System.out.println("< ACK Loss > - Re-transmitting Current Chunk"); }
 			}
@@ -204,20 +220,29 @@ public class Server
 
 		while(true)
 		{
-			DatagramPacket response = new DatagramPacket(buffer, buffer.length);
+			DatagramPacket msg_in = new DatagramPacket(buffer, buffer.length);
 			socket.setSoTimeout(400);
 			try
 			{
-				socket.receive(response);
-				String res = new String(buffer, "IBM01140");
-				if(res.charAt(0) == 'A')	//Ack received
+				socket.receive(msg_in);
+				String Expected_client = "" + ip + port;
+				String Current_client = "" + msg_in.getAddress() + msg_in.getPort();
+
+				if (Expected_client.equals(Current_client))	// verify if receiving from specific client
+				{
+					String res = new String(buffer, "IBM01140");
+					if (res.charAt(0) == 'A')    //Ack received
 					{
-						System.out.println("< FIN-ACK Received > - " + res);
+						System.out.println("< FIN ACK Received > - " + res);
 						System.out.println("--------------------------------------------------");
-						return ;
+						socket.close();
+						return;
 					}
+					else { System.out.println("< Invalid FIN ACK Received! > - " + res); }
+				}
+				else { System.out.println("Expecting Client: " + Expected_client + "\nIncoming Client: " + Current_client); }
 			}
-			catch(SocketTimeoutException e) { System.out.println("< FIN-ACK Loss > - Re-transmitting FIN"); }
+			catch(SocketTimeoutException e) { System.out.println("< FIN ACK Loss > - Re-transmitting FIN"); }
 		}
 	}
 }

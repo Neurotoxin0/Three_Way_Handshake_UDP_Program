@@ -7,3 +7,10 @@
 
 + Message of the Day: choose according to today's date
 
++ ~~Loss Mode~~
+
++ ~~Client & Server splited into methods~~
+
++ ~~Handle Invalid Responses~~
+
++ ~~Server: handle multi clients connect at same time: verify client's ip when receiving responses~~
