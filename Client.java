@@ -9,8 +9,7 @@
 
 import java.io.*;
 import java.net.*;
-import java.util.Scanner;
-import java.util.Random;
+import java.util.*;
 
 import static java.lang.System.exit;
 
