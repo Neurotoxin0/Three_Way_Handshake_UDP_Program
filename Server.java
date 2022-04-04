@@ -10,14 +10,19 @@
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import static java.lang.System.exit;
 
 public class Server
 {
-    private DatagramSocket socket;
-    private List<String> listQuotes = new ArrayList<String>();
-    private Random random;
-	byte[] buffer;
- 
+    private final DatagramSocket socket;
+	private final Random random;
+
+	private DatagramPacket msg_in;
+	private DatagramPacket msg_out;
+
+	private byte[] buffer;
+	private List<String> listQuotes = new ArrayList<String>();
+
     public Server(int port) throws SocketException
 	{
         socket = new DatagramSocket(port);
@@ -26,37 +31,38 @@ public class Server
  
     public static void main(String[] args)
 	{
-		int port;
-
-		if (args.length != 1)
-		{
-			System.out.println("--------------------------------------------------");
-			System.out.println("< Invalid Number of Argument, Reading From User >");
-			System.out.println("--------------------------------------------------");
-			System.out.print("Usage:\t<port>\n> ");
-			Scanner scanner = new Scanner(System.in);
-
-			port = Integer.parseInt(scanner.next());
-        }
-		else { port = Integer.parseInt(args[0]);}
-
-		System.out.println("\nServing On Port: " + port);
-		System.out.println("--------------------------------------------------");
-
 		try
 		{
+			int port;
+
+			if (args.length != 1)
+			{
+				System.out.println("--------------------------------------------------");
+				System.out.println("< Invalid Number of Argument, Reading From User >");
+				System.out.println("--------------------------------------------------");
+				System.out.print("Usage:\t<port>\n> ");
+				Scanner scanner = new Scanner(System.in);
+
+				port = Integer.parseInt(scanner.next());
+			}
+			else { port = Integer.parseInt(args[0]);}
+
             Server server = new Server(port);
+			System.out.println("\nServing On Port: " + port);
+			System.out.println("--------------------------------------------------");
 
 			String[] client_detail = server.waitForSyn().replace("/","").split(":");
             InetAddress client_ip = InetAddress.getByName(client_detail[0]);
 			int client_port = Integer.parseInt(client_detail[1]);
 
-			server.startConn(client_ip, client_port);
-			server.sendData(client_ip, client_port, "This is the data. Here is a second sentence that we'll send. Here is a third...", true);
-			server.sendFIN(client_ip, client_port);
+			server.HandShakes(client_ip, client_port);
+			server.SendingMessages(client_ip, client_port, "This is the data. Here is a second sentence that we'll send. Here is a third...", true);
+			exit(0);
         }
-		catch(IOException ex)	{ System.out.println("I/O error: " + ex.getMessage()); }
-		catch (InterruptedException ex) { ex.printStackTrace(); }
+		catch(NumberFormatException e)	{ System.out.println("NumberFormatException: Invalid Port #"); }
+		catch(IllegalArgumentException e)	{ System.out.println("IllegalArgumentException: Invalid Port Range"); }
+		catch(IOException e)	{ System.out.println("IOException: " + e.getMessage()); }
+		catch (InterruptedException e) { System.out.println("InterruptedException: " + e.getMessage()); }
     }
 	
 	private String waitForSyn() throws IOException
@@ -66,7 +72,7 @@ public class Server
 
 		while(true)
 		{
-			DatagramPacket msg_in = new DatagramPacket(buffer, buffer.length);
+			msg_in = new DatagramPacket(buffer, buffer.length);
 
 			try
 			{
@@ -88,7 +94,7 @@ public class Server
 		}
 	}
 	
-	private void startConn(InetAddress ip, int port) throws IOException, InterruptedException
+	private void HandShakes(InetAddress ip, int port) throws IOException, InterruptedException
 	{
 		DatagramSocket socket = this.socket;
 		socket.connect(ip, port);
@@ -96,7 +102,7 @@ public class Server
 		System.out.println("...\nPreparing SYN-ACK\n...");
 		String packetString = "Z000000000000000"; // Z for SYN ACK
 		buffer = packetString.getBytes("IBM01140");
-		DatagramPacket msg_out = new DatagramPacket(buffer, buffer.length);
+		msg_out = new DatagramPacket(buffer, buffer.length);
 		Thread.sleep(1000);
         socket.send(msg_out);
 		System.out.println("< SYN-ACK Sent > - " + packetString);
@@ -104,7 +110,7 @@ public class Server
 
 		while(true)
 		{
-			DatagramPacket msg_in = new DatagramPacket(buffer, buffer.length);
+			msg_in = new DatagramPacket(buffer, buffer.length);
 
 			try
 			{
@@ -123,7 +129,7 @@ public class Server
 		}
 	}
 	
-	private void sendData(InetAddress ip, int port, String data, boolean loss) throws IOException
+	private void SendingMessages(InetAddress ip, int port, String data, boolean loss) throws IOException
 	{
 		DatagramSocket socket = this.socket;
 		socket.connect(ip, port);
@@ -183,19 +189,19 @@ public class Server
 				catch(SocketTimeoutException e) { System.out.println("< ACK Loss > - Re-transmitting Current Chunk"); }
 			}
 		}
+		SendFIN(ip, port);
 	}
 	
-	private void sendFIN(InetAddress ip, int port) throws IOException	//CHECK IF WE SHOULD ADD SEQ # TODO: HANDLE TIMEOUT
+	private void SendFIN(InetAddress ip, int port) throws IOException	//CHECK IF WE SHOULD ADD SEQ # TODO: HANDLE TIMEOUT
 	{
 		DatagramSocket socket = this.socket;
 		socket.connect(ip, port);
 		String packetString = "F000000000000000"; //F for FIN
 		buffer = packetString.getBytes("IBM01140");
-		DatagramPacket msg_out = new DatagramPacket(buffer, 2);
+		msg_out = new DatagramPacket(buffer, 2);
 		socket.send(msg_out);
 		System.out.println("\n< FIN Sent > - " + packetString);
 
-		
 		while(true)
 		{
 			DatagramPacket response = new DatagramPacket(buffer, buffer.length);
