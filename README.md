@@ -13,6 +13,6 @@
 
 + ~~Server: handle multi clients connect at same time: verify client's ip when receiving responses~~
 
-+ Server Side: Add boolean for loss mode control
++ ~~Server Side: Add boolean for loss mode control~~
 
 + ~~Client Side: Add boolean for loss mode control~~

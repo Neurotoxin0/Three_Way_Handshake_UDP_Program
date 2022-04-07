@@ -15,18 +15,22 @@ import static java.lang.System.exit;
 public class Server
 {
     private final DatagramSocket socket;
-	private final Random random;
+	private final Random random = new Random();
 
 	private DatagramPacket msg_in;
 	private DatagramPacket msg_out;
 
 	private byte[] buffer;
+	private static boolean loss = false;
 	private List<String> listQuotes = new ArrayList<String>();
 
     public Server(int port) throws SocketException
 	{
-        socket = new DatagramSocket(port);
-        random = new Random();
+		System.out.println("\n--------------------------------------------------");
+		System.out.println("If Packet May Loss: " + loss);
+		socket = new DatagramSocket(port);
+		System.out.println("\nServing On Port: " + port);
+		System.out.println("--------------------------------------------------");
     }
  
     public static void main(String[] args)
@@ -35,28 +39,32 @@ public class Server
 		{
 			int port;
 
-			if (args.length != 1)
+			if (args.length != 1 && args.length != 2)
 			{
 				System.out.println("--------------------------------------------------");
 				System.out.println("< Invalid Number of Argument, Reading From User >");
 				System.out.println("--------------------------------------------------");
-				System.out.print("Usage:\t<port>\n> ");
+				System.out.print("Usage:\t<port> <Boolean -> If Packet May Loss, Default: false>\n> ");
 				Scanner scanner = new Scanner(System.in);
 
 				port = Integer.parseInt(scanner.next());
+				if (scanner.hasNext()) { loss = Boolean.parseBoolean(scanner.next()); }
 			}
-			else { port = Integer.parseInt(args[0]);}
+			else if (args.length == 2)
+			{
+				port = Integer.parseInt(args[0]);
+				loss = Boolean.parseBoolean(args[1]);
+			}
+			else { port = Integer.parseInt(args[0]); }
 
             Server server = new Server(port);
-			System.out.println("\nServing On Port: " + port);
-			System.out.println("--------------------------------------------------");
-
 			String[] client_detail = server.waitForSyn().replace("/","").split(":");
-            InetAddress client_ip = InetAddress.getByName(client_detail[0]);
+
+			InetAddress client_ip = InetAddress.getByName(client_detail[0]);
 			int client_port = Integer.parseInt(client_detail[1]);
 
 			server.HandShakes(client_ip, client_port);
-			server.SendingMessages(client_ip, client_port, "This is the data. Here is a second sentence that we'll send. Here is a third...", true);
+			server.SendingMessages(client_ip, client_port, "This is the data. Here is a second sentence that we'll send. Here is a third...");
 			exit(0);
         }
 		catch(NumberFormatException e)	{ System.out.println("NumberFormatException: Invalid Port #"); }
@@ -138,7 +146,7 @@ public class Server
 		}
 	}
 	
-	private void SendingMessages(InetAddress ip, int port, String data, boolean loss) throws IOException
+	private void SendingMessages(InetAddress ip, int port, String data) throws IOException
 	{
 		DatagramSocket socket = this.socket;
 		socket.connect(ip, port);

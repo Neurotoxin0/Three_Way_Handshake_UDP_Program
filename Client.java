@@ -61,10 +61,9 @@ public class Client
 			else { raw = args[0].split(":"); }
 
 			hostname = raw[0];
+			InetAddress address = InetAddress.getByName(hostname);
 			port = Integer.parseInt(raw[1]);
 
-
-			InetAddress address = InetAddress.getByName(hostname);
 			Client client = new Client(address, port);
 			client.HandShakes(address, port);
 			client.ReceivingMessages(address, port);
