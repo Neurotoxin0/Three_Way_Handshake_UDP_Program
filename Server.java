@@ -3,7 +3,6 @@
  // Yang Xu 500890631
  // Ruoling Yu 500976267
  // Xinyu Ma 500943173
- // Vince De Vera 500550779
  // Raynor Elgie 500964140
  **/
 
