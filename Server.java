@@ -15,19 +15,32 @@ import static java.lang.System.exit;
 public class Server
 {
     private final DatagramSocket socket;
-	private final Random random = new Random();
+	private static final Calendar calendar = Calendar.getInstance();
 
 	private DatagramPacket msg_in;
 	private DatagramPacket msg_out;
 
 	private byte[] buffer;
 	private static boolean loss = false;
-	private List<String> listQuotes = new ArrayList<String>();
+	private static int failure_count;
+	private final String[] Day = {"Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"};
+	private static final String[] Messages =
+			{
+					"This is the message for Sunday. Here is a second sentence that we'll send. Here is a third...",
+					"This is the message for Monday. Here is a second sentence that we'll send. Here is a third...",
+					"This is the message for Tuesday. Here is a second sentence that we'll send. Here is a third...",
+					"This is the message for Wednesday. Here is a second sentence that we'll send. Here is a third...",
+					"This is the message for Thursday. Here is a second sentence that we'll send. Here is a third...",
+					"This is the message for Friday. Here is a second sentence that we'll send. Here is a third...",
+					"This is the message for Saturday. Here is a second sentence that we'll send. Here is a third..."
+			};
 
     public Server(int port) throws SocketException
 	{
 		System.out.println("\n--------------------------------------------------");
-		System.out.println("If Packet May Loss: " + loss);
+		System.out.println("If Packet May Loss: " + loss + "\n");
+		System.out.println("Date for today: " + Day[calendar.get(Calendar.DAY_OF_WEEK)-1]);
+		System.out.println("Message for today: " + Messages[calendar.get(Calendar.DAY_OF_WEEK)-1]);
 		socket = new DatagramSocket(port);
 		System.out.println("\nServing On Port: " + port);
 		System.out.println("--------------------------------------------------");
@@ -64,7 +77,7 @@ public class Server
 			int client_port = Integer.parseInt(client_detail[1]);
 
 			server.HandShakes(client_ip, client_port);
-			server.SendingMessages(client_ip, client_port, "This is the data. Here is a second sentence that we'll send. Here is a third...");
+			server.SendingMessages(client_ip, client_port, Messages[calendar.get(Calendar.DAY_OF_WEEK)-1]);
 			exit(0);
         }
 		catch(NumberFormatException e)	{ System.out.println("NumberFormatException: Invalid Port #"); }
@@ -117,7 +130,8 @@ public class Server
 		System.out.println("< SYN ACK Sent > - " + packetString);
 		System.out.println("...\nAwait REQ\n...");
 
-		while(true)
+		failure_count = 0;
+		while(failure_count <= 5)
 		{
 			msg_in = new DatagramPacket(buffer, buffer.length);
 
@@ -143,14 +157,18 @@ public class Server
 				else { System.out.println("Expecting Client: " + Expected_client + "\nIncoming Client: " + Current_client); }
 			}
 			catch(SocketTimeoutException e) { System.out.println("SocketTimeoutException: Timeout Occurred"); }
+
+			failure_count ++;
 		}
+		System.out.println("Fail Count Reach 5, Aborting!");
+		exit(1);
 	}
 	
 	private void SendingMessages(InetAddress ip, int port, String data) throws IOException
 	{
 		DatagramSocket socket = this.socket;
 		socket.connect(ip, port);
-		Random random =this.random;
+		Random random = new Random();
 
 		System.out.println("Splitting Messages into Chunks:\n");
 
@@ -177,7 +195,8 @@ public class Server
 
 		for(i = 0; i < chunks.size(); i++)
 		{
-			while(true)	// TODO: HANDLE TIMEOUT
+			failure_count = 0;
+			while(failure_count <= 5)	// TODO: HANDLE TIMEOUT
 			{
 				buffer = ("D" + (i % 2) + "00000000000000").getBytes("IBM01140");
 				System.arraycopy(chunks.get(i), 0, buffer, 2, 14);
@@ -211,6 +230,13 @@ public class Server
 					else { System.out.println("Expecting Client: " + Expected_client + "\nIncoming Client: " + Current_client); }
 				}
 				catch(SocketTimeoutException e) { System.out.println("< ACK Loss > - Re-transmitting Current Chunk"); }
+
+				failure_count ++;
+			}
+			if (failure_count > 5)
+			{
+				System.out.println("Fail Count Reach 5, Aborting!");
+				exit(1);
 			}
 		}
 		SendFIN(ip, port);
@@ -226,7 +252,8 @@ public class Server
 		socket.send(msg_out);
 		System.out.println("\n< FIN Sent > - " + packetString);
 
-		while(true)
+		failure_count = 0;
+		while(failure_count <= 5)
 		{
 			DatagramPacket msg_in = new DatagramPacket(buffer, buffer.length);
 			socket.setSoTimeout(400);
@@ -251,6 +278,10 @@ public class Server
 				else { System.out.println("Expecting Client: " + Expected_client + "\nIncoming Client: " + Current_client); }
 			}
 			catch(SocketTimeoutException e) { System.out.println("< FIN ACK Loss > - Re-transmitting FIN"); }
+
+			failure_count ++;
 		}
+		System.out.println("Fail Count Reach 5, Aborting!");
+		exit(1);
 	}
 }
