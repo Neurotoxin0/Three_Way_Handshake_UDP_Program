@@ -195,7 +195,7 @@ public class Server
 		for(i = 0; i < chunks.size(); i++)
 		{
 			failure_count = 0;
-			while(failure_count <= 5)	// TODO: HANDLE TIMEOUT
+			while(failure_count <= 5)
 			{
 				buffer = ("D" + (i % 2) + "00000000000000").getBytes("IBM01140");
 				System.arraycopy(chunks.get(i), 0, buffer, 2, 14);
@@ -241,7 +241,7 @@ public class Server
 		SendFIN(ip, port);
 	}
 	
-	private void SendFIN(InetAddress ip, int port) throws IOException	//CHECK IF WE SHOULD ADD SEQ # TODO: HANDLE TIMEOUT
+	private void SendFIN(InetAddress ip, int port) throws IOException
 	{
 		DatagramSocket socket = this.socket;
 		socket.connect(ip, port);
